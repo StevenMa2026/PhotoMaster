@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		334141C32FBF452100371E03 /* JunjunMLClassifier.mlmodel in Sources */ = {isa = PBXBuildFile; fileRef = 334141C22FBF452100371E03 /* JunjunMLClassifier.mlmodel */; };
+		334141C52FC530DD00371E03 /* PetClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 334141C42FC530DD00371E03 /* PetClassifier.swift */; };
 		33BB69132F69388E00EA75D9 /* PhotoMasterApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33BB69122F69388E00EA75D9 /* PhotoMasterApp.swift */; };
 		33BB69152F69388E00EA75D9 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33BB69142F69388E00EA75D9 /* ContentView.swift */; };
 		33BB69172F69389100EA75D9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 33BB69162F69389100EA75D9 /* Assets.xcassets */; };
@@ -14,6 +16,27 @@
 		33BB69242F69389200EA75D9 /* PhotoMasterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33BB69232F69389200EA75D9 /* PhotoMasterTests.swift */; };
 		33BB692E2F69389200EA75D9 /* PhotoMasterUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33BB692D2F69389200EA75D9 /* PhotoMasterUITests.swift */; };
 		33BB69302F69389200EA75D9 /* PhotoMasterUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33BB692F2F69389200EA75D9 /* PhotoMasterUITestsLaunchTests.swift */; };
+		33CC72632F6A820800CC914A /* PhotoClassifiable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC72642F6A820800CC914A /* PhotoClassifiable.swift */; };
+		33CC72652F6A820800CC914A /* FanRenClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC72662F6A820800CC914A /* FanRenClassifier.swift */; };
+		33CC72672F6A820800CC914A /* FinanceClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC72682F6A820800CC914A /* FinanceClassifier.swift */; };
+		33CC72692F6A820800CC914A /* FoodClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC726A2F6A820800CC914A /* FoodClassifier.swift */; };
+		33CC726B2F6A820800CC914A /* FavoriteYearClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC726C2F6A820800CC914A /* FavoriteYearClassifier.swift */; };
+		33CC726D2F6A820800CC914A /* WangZheClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC726E2F6A820800CC914A /* WangZheClassifier.swift */; };
+		33CC726F2F6A820800CC914A /* SwimClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC72702F6A820800CC914A /* SwimClassifier.swift */; };
+		33CC72712F6A820800CC914A /* ParkClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC72722F6A820800CC914A /* ParkClassifier.swift */; };
+		33CC72732F6A820800CC914A /* TvMovieClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC72742F6A820800CC914A /* TvMovieClassifier.swift */; };
+		33CC72752F6A820800CC914A /* WeChatFavoriteClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC72762F6A820800CC914A /* WeChatFavoriteClassifier.swift */; };
+		33CC72772F6A820800CC914A /* AppScreenshotsClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC72782F6A820800CC914A /* AppScreenshotsClassifier.swift */; };
+		33CC72792F6A820800CC914A /* AppDevClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC727A2F6A820800CC914A /* AppDevClassifier.swift */; };
+		33CC727B2F6A820800CC914A /* PS5ProGameClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC727C2F6A820800CC914A /* PS5ProGameClassifier.swift */; };
+		33CC727D2F6A820800CC914A /* WorkClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC727E2F6A820800CC914A /* WorkClassifier.swift */; };
+		33CC727F2F6A820800CC914A /* SelfieClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC72802F6A820800CC914A /* SelfieClassifier.swift */; };
+		33CC72812F6A820800CC914A /* ShangDeClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC72822F6A820800CC914A /* ShangDeClassifier.swift */; };
+		33CC72832F6A820800CC914A /* BuildingBlocksClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC72842F6A820800CC914A /* BuildingBlocksClassifier.swift */; };
+		33CC72852F6A820800CC914A /* PhotoSorter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC72862F6A820800CC914A /* PhotoSorter.swift */; };
+		33CC72872F6A820800CC914A /* ImageUtil.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC72882F6A820800CC914A /* ImageUtil.swift */; };
+		33CC72892F6A820800CC914A /* DateUtil.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC728A2F6A820800CC914A /* DateUtil.swift */; };
+		33CC728B2F6A820800CC914A /* PersonUtil.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC728C2F6A820800CC914A /* PersonUtil.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -34,6 +57,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		334141C22FBF452100371E03 /* JunjunMLClassifier.mlmodel */ = {isa = PBXFileReference; lastKnownFileType = file.mlmodel; path = JunjunMLClassifier.mlmodel; sourceTree = "<group>"; };
+		334141C42FC530DD00371E03 /* PetClassifier.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PetClassifier.swift; sourceTree = "<group>"; };
 		33BB690F2F69388E00EA75D9 /* PhotoMaster.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PhotoMaster.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		33BB69122F69388E00EA75D9 /* PhotoMasterApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoMasterApp.swift; sourceTree = "<group>"; };
 		33BB69142F69388E00EA75D9 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -44,6 +69,27 @@
 		33BB69292F69389200EA75D9 /* PhotoMasterUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PhotoMasterUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		33BB692D2F69389200EA75D9 /* PhotoMasterUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoMasterUITests.swift; sourceTree = "<group>"; };
 		33BB692F2F69389200EA75D9 /* PhotoMasterUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoMasterUITestsLaunchTests.swift; sourceTree = "<group>"; };
+		33CC72642F6A820800CC914A /* PhotoClassifiable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoClassifiable.swift; sourceTree = "<group>"; };
+		33CC72662F6A820800CC914A /* FanRenClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FanRenClassifier.swift; sourceTree = "<group>"; };
+		33CC72682F6A820800CC914A /* FinanceClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinanceClassifier.swift; sourceTree = "<group>"; };
+		33CC726A2F6A820800CC914A /* FoodClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodClassifier.swift; sourceTree = "<group>"; };
+		33CC726C2F6A820800CC914A /* FavoriteYearClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoriteYearClassifier.swift; sourceTree = "<group>"; };
+		33CC726E2F6A820800CC914A /* WangZheClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WangZheClassifier.swift; sourceTree = "<group>"; };
+		33CC72702F6A820800CC914A /* SwimClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwimClassifier.swift; sourceTree = "<group>"; };
+		33CC72722F6A820800CC914A /* ParkClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkClassifier.swift; sourceTree = "<group>"; };
+		33CC72742F6A820800CC914A /* TvMovieClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TvMovieClassifier.swift; sourceTree = "<group>"; };
+		33CC72762F6A820800CC914A /* WeChatFavoriteClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeChatFavoriteClassifier.swift; sourceTree = "<group>"; };
+		33CC72782F6A820800CC914A /* AppScreenshotsClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppScreenshotsClassifier.swift; sourceTree = "<group>"; };
+		33CC727A2F6A820800CC914A /* AppDevClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDevClassifier.swift; sourceTree = "<group>"; };
+		33CC727C2F6A820800CC914A /* PS5ProGameClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PS5ProGameClassifier.swift; sourceTree = "<group>"; };
+		33CC727E2F6A820800CC914A /* WorkClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkClassifier.swift; sourceTree = "<group>"; };
+		33CC72802F6A820800CC914A /* SelfieClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelfieClassifier.swift; sourceTree = "<group>"; };
+		33CC72822F6A820800CC914A /* ShangDeClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShangDeClassifier.swift; sourceTree = "<group>"; };
+		33CC72842F6A820800CC914A /* BuildingBlocksClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuildingBlocksClassifier.swift; sourceTree = "<group>"; };
+		33CC72862F6A820800CC914A /* PhotoSorter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoSorter.swift; sourceTree = "<group>"; };
+		33CC72882F6A820800CC914A /* ImageUtil.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageUtil.swift; sourceTree = "<group>"; };
+		33CC728A2F6A820800CC914A /* DateUtil.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateUtil.swift; sourceTree = "<group>"; };
+		33CC728C2F6A820800CC914A /* PersonUtil.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonUtil.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -71,6 +117,14 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		334141C12FBF452100371E03 /* ML */ = {
+			isa = PBXGroup;
+			children = (
+				334141C22FBF452100371E03 /* JunjunMLClassifier.mlmodel */,
+			);
+			path = ML;
+			sourceTree = "<group>";
+		};
 		33BB69062F69388E00EA75D9 = {
 			isa = PBXGroup;
 			children = (
@@ -94,8 +148,12 @@
 		33BB69112F69388E00EA75D9 /* PhotoMaster */ = {
 			isa = PBXGroup;
 			children = (
+				334141C12FBF452100371E03 /* ML */,
 				33BB69122F69388E00EA75D9 /* PhotoMasterApp.swift */,
-				33BB69142F69388E00EA75D9 /* ContentView.swift */,
+				33CC72622F6A820800CC914A /* Classifiers */,
+				33CC728D2F6A820800CC914A /* Services */,
+				33CC728F2F6A820800CC914A /* UI */,
+				33CC72912F6A820800CC914A /* Util */,
 				33BB69162F69389100EA75D9 /* Assets.xcassets */,
 				33BB69182F69389100EA75D9 /* Preview Content */,
 			);
@@ -125,6 +183,57 @@
 				33BB692F2F69389200EA75D9 /* PhotoMasterUITestsLaunchTests.swift */,
 			);
 			path = PhotoMasterUITests;
+			sourceTree = "<group>";
+		};
+		33CC72622F6A820800CC914A /* Classifiers */ = {
+			isa = PBXGroup;
+			children = (
+				334141C42FC530DD00371E03 /* PetClassifier.swift */,
+				33CC72642F6A820800CC914A /* PhotoClassifiable.swift */,
+				33CC72662F6A820800CC914A /* FanRenClassifier.swift */,
+				33CC72682F6A820800CC914A /* FinanceClassifier.swift */,
+				33CC726A2F6A820800CC914A /* FoodClassifier.swift */,
+				33CC726C2F6A820800CC914A /* FavoriteYearClassifier.swift */,
+				33CC726E2F6A820800CC914A /* WangZheClassifier.swift */,
+				33CC72702F6A820800CC914A /* SwimClassifier.swift */,
+				33CC72722F6A820800CC914A /* ParkClassifier.swift */,
+				33CC72742F6A820800CC914A /* TvMovieClassifier.swift */,
+				33CC72762F6A820800CC914A /* WeChatFavoriteClassifier.swift */,
+				33CC72782F6A820800CC914A /* AppScreenshotsClassifier.swift */,
+				33CC727A2F6A820800CC914A /* AppDevClassifier.swift */,
+				33CC727C2F6A820800CC914A /* PS5ProGameClassifier.swift */,
+				33CC727E2F6A820800CC914A /* WorkClassifier.swift */,
+				33CC72802F6A820800CC914A /* SelfieClassifier.swift */,
+				33CC72822F6A820800CC914A /* ShangDeClassifier.swift */,
+				33CC72842F6A820800CC914A /* BuildingBlocksClassifier.swift */,
+			);
+			path = Classifiers;
+			sourceTree = "<group>";
+		};
+		33CC728D2F6A820800CC914A /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				33CC72862F6A820800CC914A /* PhotoSorter.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		33CC728F2F6A820800CC914A /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				33BB69142F69388E00EA75D9 /* ContentView.swift */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+		33CC72912F6A820800CC914A /* Util */ = {
+			isa = PBXGroup;
+			children = (
+				33CC72882F6A820800CC914A /* ImageUtil.swift */,
+				33CC728A2F6A820800CC914A /* DateUtil.swift */,
+				33CC728C2F6A820800CC914A /* PersonUtil.swift */,
+			);
+			path = Util;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -257,8 +366,31 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				33BB69152F69388E00EA75D9 /* ContentView.swift in Sources */,
 				33BB69132F69388E00EA75D9 /* PhotoMasterApp.swift in Sources */,
+				33BB69152F69388E00EA75D9 /* ContentView.swift in Sources */,
+				33CC72632F6A820800CC914A /* PhotoClassifiable.swift in Sources */,
+				33CC72652F6A820800CC914A /* FanRenClassifier.swift in Sources */,
+				33CC72672F6A820800CC914A /* FinanceClassifier.swift in Sources */,
+				33CC72692F6A820800CC914A /* FoodClassifier.swift in Sources */,
+				33CC726B2F6A820800CC914A /* FavoriteYearClassifier.swift in Sources */,
+				33CC726D2F6A820800CC914A /* WangZheClassifier.swift in Sources */,
+				33CC726F2F6A820800CC914A /* SwimClassifier.swift in Sources */,
+				33CC72712F6A820800CC914A /* ParkClassifier.swift in Sources */,
+				334141C32FBF452100371E03 /* JunjunMLClassifier.mlmodel in Sources */,
+				33CC72732F6A820800CC914A /* TvMovieClassifier.swift in Sources */,
+				33CC72752F6A820800CC914A /* WeChatFavoriteClassifier.swift in Sources */,
+				33CC72772F6A820800CC914A /* AppScreenshotsClassifier.swift in Sources */,
+				33CC72792F6A820800CC914A /* AppDevClassifier.swift in Sources */,
+				33CC727B2F6A820800CC914A /* PS5ProGameClassifier.swift in Sources */,
+				33CC727D2F6A820800CC914A /* WorkClassifier.swift in Sources */,
+				33CC727F2F6A820800CC914A /* SelfieClassifier.swift in Sources */,
+				33CC72812F6A820800CC914A /* ShangDeClassifier.swift in Sources */,
+				33CC72832F6A820800CC914A /* BuildingBlocksClassifier.swift in Sources */,
+				33CC72852F6A820800CC914A /* PhotoSorter.swift in Sources */,
+				33CC72872F6A820800CC914A /* ImageUtil.swift in Sources */,
+				334141C52FC530DD00371E03 /* PetClassifier.swift in Sources */,
+				33CC72892F6A820800CC914A /* DateUtil.swift in Sources */,
+				33CC728B2F6A820800CC914A /* PersonUtil.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -388,7 +520,6 @@
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
@@ -422,13 +553,17 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"PhotoMaster/Preview Content\"";
+				DEVELOPMENT_TEAM = MR9PU5JJ3S;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.2;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -450,13 +585,17 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"PhotoMaster/Preview Content\"";
+				DEVELOPMENT_TEAM = MR9PU5JJ3S;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.2;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

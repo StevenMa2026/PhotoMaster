@@ -1,0 +1,18 @@
+# Xcode user data
+xcuserdata/
+xcdebugger/
+
+# Build products
+DerivedData/
+build/
+*.xcuserstate
+*.xccheckout
+
+# macOS
+.DS_Store
+
+# Swift Package Manager
+.swiftpm/
+
+# AI assistant config
+.claude/
