@@ -20,6 +20,8 @@ protocol PhotoClassifiable {
     var supportedAlbumTypes: [(type: PHAssetCollectionType, subtype: PHAssetCollectionSubtype)] { get }
     // Which album names this classifier should search in (empty means no album name restriction)
     var supportedAlbumNames: Set<String> { get }
+    // Whether this classifier needs high-resolution images (e.g. OCR). Defaults to false.
+    var requiresHighResolution: Bool { get }
 }
 
 extension PhotoClassifiable {
@@ -30,14 +32,16 @@ extension PhotoClassifiable {
     var exclusive: Bool { false }
 
     var supportedMediaTypes: Set<PHAssetMediaType> { [.image] }
-    
+
     var supportedAlbumTypes: [(type: PHAssetCollectionType, subtype: PHAssetCollectionSubtype)] {
         // Default to empty, which means use default scan range
         []
     }
-    
+
     var supportedAlbumNames: Set<String> {
         // Default to empty, which means no album name restriction
         []
     }
+
+    var requiresHighResolution: Bool { false }
 }

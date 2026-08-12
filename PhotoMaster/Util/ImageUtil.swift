@@ -40,7 +40,7 @@ struct ImageUtil {
                 assetKey: cacheKeyAsset,
                 image: image,
                 roi: roi,
-                recognitionLanguages: recognitionLanguages + ["level:\(recognitionLevel == .fast ? "fast" : "accurate")"]
+                recognitionLanguages: recognitionLanguages
             ) as NSString
             if let cached = ocrTextCache.object(forKey: key) {
                 return String(cached)
@@ -74,7 +74,7 @@ struct ImageUtil {
                 assetKey: cacheKeyAsset,
                 image: image,
                 roi: roi,
-                recognitionLanguages: recognitionLanguages + ["level:\(recognitionLevel == .fast ? "fast" : "accurate")"]
+                recognitionLanguages: recognitionLanguages
             ) as NSString
             ocrTextCache.setObject(recognized as NSString, forKey: key)
         }

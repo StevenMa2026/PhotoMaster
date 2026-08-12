@@ -5,6 +5,7 @@ import Photos
 class AppScreenshotsClassifier: PhotoClassifiable {
     var albumName: String { "app截图" }
     var exclusive: Bool { true }
+    var requiresHighResolution: Bool { true }
     var supportedMediaTypes: Set<PHAssetMediaType> { [.image] }
     var supportedAlbumTypes: [(type: PHAssetCollectionType, subtype: PHAssetCollectionSubtype)] {
         return [(type: .smartAlbum, subtype: .smartAlbumScreenshots)]

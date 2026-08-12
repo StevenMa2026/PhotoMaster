@@ -5,6 +5,7 @@ import Photos
 class WangZheClassifier: PhotoClassifiable {
     var albumName: String { "王者荣耀" }
     var exclusive: Bool { true }
+    var requiresHighResolution: Bool { true }
     var supportedMediaTypes: Set<PHAssetMediaType> { [.image] }
     // 只检查截图相册
     var supportedAlbumTypes: [(type: PHAssetCollectionType, subtype: PHAssetCollectionSubtype)] {

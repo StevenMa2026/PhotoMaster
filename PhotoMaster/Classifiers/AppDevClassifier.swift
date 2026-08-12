@@ -5,6 +5,7 @@ import Photos
 class AppDevClassifier: PhotoClassifiable {
     var albumName: String { "app开发" }
     var exclusive: Bool { true }
+    var requiresHighResolution: Bool { true }
     
     private let keywords = [
         "智能相册归类", "开始自动归类", "MacBook", "TRAE", "Xcode", "PhotoMaster"

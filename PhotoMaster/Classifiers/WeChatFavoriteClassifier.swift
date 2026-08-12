@@ -4,6 +4,7 @@ import Photos
 class WeChatFavoriteClassifier: PhotoClassifiable {
     var albumName: String { "微信favorite截图" }
     var exclusive: Bool { true }
+    var requiresHighResolution: Bool { true }
     var supportedAlbumTypes: [(type: PHAssetCollectionType, subtype: PHAssetCollectionSubtype)] {
         // 只检查截图相册
         return [(type: .smartAlbum, subtype: .smartAlbumScreenshots)]

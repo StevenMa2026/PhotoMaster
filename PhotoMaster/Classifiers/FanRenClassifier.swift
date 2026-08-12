@@ -7,6 +7,7 @@ import Photos
 class FanRenClassifier: PhotoClassifiable {
     var albumName: String { "凡人修仙传" }
     var exclusive: Bool { true }
+    var requiresHighResolution: Bool { true }
     
     func matches(image: CGImage, asset: PHAsset) -> Bool {
         let isHorizontal = image.width > image.height

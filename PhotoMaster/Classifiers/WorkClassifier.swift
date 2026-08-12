@@ -4,6 +4,7 @@ import Photos
 class WorkClassifier: PhotoClassifiable {
     var albumName: String { "工作" }
     var exclusive: Bool { true }
+    var requiresHighResolution: Bool { true }
 
     private let keywords = [
         "sonarcube", "pipeline", "github", "eufiudwq", "confluence",

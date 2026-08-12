@@ -5,6 +5,7 @@ import Photos
 class TvMovieClassifier: PhotoClassifiable {
     var albumName: String { "经典电视电影综艺画面" }
     var exclusive: Bool { true }
+    var requiresHighResolution: Bool { true }
     
     private let keywords = [
         "电视", "卫视", "电视台", "CCTV", "综艺", "节目", "央视频",

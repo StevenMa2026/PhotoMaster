@@ -5,6 +5,7 @@ import Photos
 class FinanceClassifier: PhotoClassifiable {
     var albumName: String { "投资" }
     var exclusive: Bool { true }
+    var requiresHighResolution: Bool { true }
     var supportedAlbumTypes: [(type: PHAssetCollectionType, subtype: PHAssetCollectionSubtype)] {
         // 只检查截图相册
         return [(type: .smartAlbum, subtype: .smartAlbumScreenshots)]

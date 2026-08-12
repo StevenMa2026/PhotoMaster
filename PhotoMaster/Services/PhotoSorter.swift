@@ -1,6 +1,7 @@
 import Photos
 import SwiftUI
 import UIKit
+import QuartzCore
 
 class PhotoSorter: ObservableObject {
     struct RuleOption: Identifiable {
@@ -23,10 +24,29 @@ class PhotoSorter: ObservableObject {
 
     @Published var status = "等待开始"
     @Published var isRunning = false
-    @Published var processingTime = "00:00"  // 处理时间显示
+
+    // 处理时间显示：非 @Published，每秒更新不触发 SwiftUI 重渲染。
+    // 扫描中 processedCount 每 100ms 刷新会让 UI 读取到最新值。
+    private(set) var processingTime = "00:00"
 
     @Published var totalCount = 0
     @Published var processedCount = 0
+
+    /// 当前正在处理的照片缩略图（复用扫描解码结果降采样，零额外请求）。
+    /// 用于扫描时的"监控视图"实时展示。
+    @Published var currentThumbnail: UIImage?
+
+    /// 当前照片被归入的相册名数组（可能为空 = 未归类）。
+    /// 扫描时展示在缩略图下方，即时反馈分类结果。
+    @Published var currentAlbumNames: [String] = []
+
+    /// 正在读取照片库（加载 asset 列表）时置 true，用于显示过渡 UI。
+    /// 点击"开始"后立即为 true，加载完成或失败后为 false。
+    @Published var isLoadingAssets = false
+
+    /// 用户是否正在滚动页面。滚动时暂停启动新的 OCR 处理，让出 CPU/GPU 给 UI。
+    /// 非 @Published：主线程写、后台线程读，Bool 原子读写足够。
+    var isUserScrolling = false
     
     // 一键处理未分类截图的进度
     @Published var screenshotProcessingTotal = 0
@@ -47,6 +67,21 @@ class PhotoSorter: ObservableObject {
     
     // 已扫描照片ID缓存
     private var scannedAssetIDsCache: Set<String>?
+
+    // MARK: - 扫描性能优化
+    /// 两帧之间的节流间隔 (秒)，防止 Vision OCR 连续占用 GPU 导致 UI 卡顿
+    private let scanThrottleInterval: TimeInterval = 0.05
+
+    /// 主线程进度通知的最短间隔 (秒)：每张照片不再立即刷新 UI，而是合并刷新
+    private let progressNotifyInterval: TimeInterval = 0.1
+    private var lastProgressNotifyTime: TimeInterval = 0
+
+    /// 待写入 UserDefaults 的已扫描 ID 集合，批量刷入减少磁盘 I/O
+    private var pendingScannedIDs = Set<String>()
+    private let scannedFlushBatchSize = 50
+
+    /// 缓存 "已在任意相册中的照片 ID" 集合，避免每次扫描重复遍历所有相册
+    private var assetsInAnyAlbumCache: Set<String>?
     
     private var scannedAssetIDs: Set<String> {
         get {
@@ -54,7 +89,7 @@ class PhotoSorter: ObservableObject {
             if let cached = scannedAssetIDsCache {
                 return cached
             }
-            
+
             // 缓存未命中，从 UserDefaults 读取
             if let data = UserDefaults.standard.data(forKey: scannedAssetsKey),
                let set = try? JSONDecoder().decode(Set<String>.self, from: data) {
@@ -64,9 +99,10 @@ class PhotoSorter: ObservableObject {
             return []
         }
         set {
+            // 避免通过 setter 全量写入；走 markAsScanned 批量刷入
+            scannedAssetIDsCache = newValue
             if let data = try? JSONEncoder().encode(newValue) {
                 UserDefaults.standard.set(data, forKey: scannedAssetsKey)
-                scannedAssetIDsCache = newValue
             }
         }
     }
@@ -209,31 +245,49 @@ class PhotoSorter: ObservableObject {
     // 预处理分类器，过滤出可能匹配的分类器
     private func getApplicableClassifiers(for asset: PHAsset) -> [(id: String, title: String, classifier: PhotoClassifiable)] {
         var applicable: [(id: String, title: String, classifier: PhotoClassifiable)] = []
-        
+
         for entry in classifiers {
             guard selectedRuleIDs.contains(entry.id) else { continue }
             let classifier = entry.classifier
-            
+
+            // 目标相册不存在则跳过：不做 OCR、不显示"归类到"。
+            // 先按动态 albumName(for:) 判断，FavoriteYear 这类按年份的也能正确过滤。
+            guard albumExists(for: classifier, asset: asset) else { continue }
+
             // 检查媒体类型
             guard classifier.supportedMediaTypes.contains(asset.mediaType) else { continue }
-            
+
             // 检查相册类型
             let albumTypesMatch = !classifier.supportedAlbumTypes.isEmpty &&
                                   isAssetInAlbumTypes(asset: asset, albumTypes: classifier.supportedAlbumTypes)
-            
+
             // 检查相册名
             let albumNamesMatch = !classifier.supportedAlbumNames.isEmpty &&
                                   isAssetInAlbumNames(asset: asset, albumNames: classifier.supportedAlbumNames)
-            
+
             // 相册类型匹配 或 相册名匹配，任一满足即可
             // 如果都没设置（albumTypes和albumNames都是空），则视为匹配
             let hasNoAlbumRestrictions = classifier.supportedAlbumTypes.isEmpty && classifier.supportedAlbumNames.isEmpty
             guard hasNoAlbumRestrictions || albumTypesMatch || albumNamesMatch else { continue }
-            
+
             applicable.append(entry)
         }
-        
+
         return applicable
+    }
+
+    /// 判断分类器的目标相册是否存在于设备中（带缓存）。
+    /// 返回 nil 视为不存在。
+    private func albumExists(for classifier: PhotoClassifiable, asset: PHAsset) -> Bool {
+        let name = classifier.albumName(for: asset)
+        guard !name.isEmpty else { return false }
+
+        // 优先用已构建的 albumCache（标题 → 相册），命中即存在
+        if albumCache[name] != nil {
+            return true
+        }
+        // 缓存里没有就显式查询一次（带 albumExistenceCache）
+        return hasAlbum(named: name)
     }
     
     func classifyAll(image: CGImage, asset: PHAsset) -> [String] {
@@ -365,7 +419,9 @@ class PhotoSorter: ObservableObject {
     private let countKey = "lastCount"
     private let totalKey = "lastTotal"
 
-    private let scanQueue = DispatchQueue(label: "com.photomaster.scan", qos: .utility)
+    // qos 设为 background：OCR 属于低优先级批量任务，
+    // 让出 CPU 给 UI 线程，避免扫描时滑动掉帧。
+    private let scanQueue = DispatchQueue(label: "com.photomaster.scan", qos: .background)
 
     init() {
         selectedRuleIDs = Set() // 默认全部清空
@@ -384,22 +440,25 @@ class PhotoSorter: ObservableObject {
         } else {
             selectedRuleIDs.remove(id)
         }
+        _needsHighResCache = nil
         buildAlbumCache()
-        buildInitialAlbumPhotoCounts()
+        albumPhotoCounts = buildInitialAlbumPhotoCounts()
     }
 
     func selectAllRules() {
         selectedRuleIDs = Set(classifiers.map { $0.id })
+        _needsHighResCache = nil
         buildAlbumCache()
-        buildInitialAlbumPhotoCounts()
+        albumPhotoCounts = buildInitialAlbumPhotoCounts()
     }
 
     func clearAllRules() {
         selectedRuleIDs.removeAll()
+        _needsHighResCache = nil
         buildAlbumCache()
-        buildInitialAlbumPhotoCounts()
+        albumPhotoCounts = buildInitialAlbumPhotoCounts()
     }
-    
+
     func selectGroupRules(groupTitle: String) {
         for group in ruleGroups where group.title == groupTitle {
             for rule in group.rules {
@@ -407,10 +466,11 @@ class PhotoSorter: ObservableObject {
             }
             break
         }
+        _needsHighResCache = nil
         buildAlbumCache()
-        buildInitialAlbumPhotoCounts()
+        albumPhotoCounts = buildInitialAlbumPhotoCounts()
     }
-    
+
     func clearGroupRules(groupTitle: String) {
         for group in ruleGroups where group.title == groupTitle {
             for rule in group.rules {
@@ -418,8 +478,9 @@ class PhotoSorter: ObservableObject {
             }
             break
         }
+        _needsHighResCache = nil
         buildAlbumCache()
-        buildInitialAlbumPhotoCounts()
+        albumPhotoCounts = buildInitialAlbumPhotoCounts()
     }
 
     // MARK: - 外部调用
@@ -434,11 +495,14 @@ class PhotoSorter: ObservableObject {
             albumTypeAssetCache.removeAll() // 清空相册类型缓存
             albumNameAssetCache.removeAll() // 清空相册名缓存
             albumExistenceCache.removeAll() // 清空相册存在性缓存
+            assetsInAnyAlbumCache = nil      // 清空"已在相册中"缓存
             resetProcessingTime()
         }
-        requestPhotoPermission()
+        isLoadingAssets = true
+        status = "正在读取相册…"
+        ensurePermissionAndLoad(useStartIndex: false)
     }
-    
+
     func startFromIndex() {
         guard !selectedRuleIDs.isEmpty else {
             status = "请先选择至少一个规则"
@@ -450,13 +514,17 @@ class PhotoSorter: ObservableObject {
             albumTypeAssetCache.removeAll() // 清空相册类型缓存
             albumNameAssetCache.removeAll() // 清空相册名缓存
             albumExistenceCache.removeAll() // 清空相册存在性缓存
+            assetsInAnyAlbumCache = nil      // 清空"已在相册中"缓存
         }
-        requestPhotoPermissionWithStartIndex()
+        isLoadingAssets = true
+        status = "正在读取相册…"
+        ensurePermissionAndLoad(useStartIndex: true)
     }
 
     func pause() {
         isRunning = false
         stopProcessingTimer()
+        finalizeScannedIDs()
         saveProgress()
         status = "已暂停 · 已处理 \(processedCount)/\(totalCount) 张"
     }
@@ -473,11 +541,19 @@ class PhotoSorter: ObservableObject {
 
     func stopAndReset() {
         isRunning = false
+        isLoadingAssets = false
         currentIndex = 0
         processedCount = 0
         totalCount = 0
         assets = []
         albumPhotoCounts.removeAll()
+        currentThumbnail = nil
+        currentAlbumNames = []
+        albumTypeAssetCache.removeAll()
+        albumNameAssetCache.removeAll()
+        albumExistenceCache.removeAll()
+        assetsInAnyAlbumCache = nil
+        finalizeScannedIDs()
 
         UserDefaults.standard.removeObject(forKey: indexKey)
         UserDefaults.standard.removeObject(forKey: countKey)
@@ -522,272 +598,150 @@ class PhotoSorter: ObservableObject {
     }
 
     // MARK: - 权限 & 加载
-    private func requestPhotoPermission() {
-        PHPhotoLibrary.requestAuthorization { [weak self] res in
-            guard let self = self else { return }
-            guard res == .authorized else {
-                DispatchQueue.main.async {
-                    self.status = "请允许相册权限"
-                }
-                return
-            }
-            
-            self.loadAssets()
+
+    /// 应用启动时调用一次：如果还未决定则请求相册权限。
+    /// 之后 start() 只做状态检查，不再触发权限弹窗。
+    func requestPhotoPermissionIfNeeded() {
+        if PHPhotoLibrary.authorizationStatus() == .notDetermined {
+            PHPhotoLibrary.requestAuthorization { _ in }
         }
     }
-    
-    private func requestPhotoPermissionWithStartIndex() {
-        PHPhotoLibrary.requestAuthorization { [weak self] res in
-            guard let self = self else { return }
-            guard res == .authorized else {
-                DispatchQueue.main.async {
-                    self.status = "请允许相册权限"
-                }
-                return
+
+    /// 检查权限并加载。已授权直接加载，未授权给出提示。
+    private func ensurePermissionAndLoad(useStartIndex: Bool) {
+        let status = PHPhotoLibrary.authorizationStatus()
+        switch status {
+        case .authorized, .limited:
+            if useStartIndex {
+                loadAssetsWithStartIndex()
+            } else {
+                loadAssets()
             }
-            
-            self.loadAssetsWithStartIndex()
+        default:
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                self.isLoadingAssets = false
+                self.status = "请允许相册权限"
+            }
         }
     }
 
     private func loadAssets() {
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            self.buildAlbumCache()
-            self.buildInitialAlbumPhotoCounts()
-            
-            // 分类处理：分为指定了相册类型的规则、指定了相册名的规则和未指定的规则
-            var rulesWithAlbumTypes: [(id: String, classifier: PhotoClassifiable)] = []
-            var rulesWithAlbumNames: [(id: String, classifier: PhotoClassifiable)] = []
-            var rulesWithoutAlbumRestrictions: [(id: String, classifier: PhotoClassifiable)] = []
-            
-            for entry in classifiers where selectedRuleIDs.contains(entry.id) {
-                let hasAlbumTypes = !entry.classifier.supportedAlbumTypes.isEmpty
-                let hasAlbumNames = !entry.classifier.supportedAlbumNames.isEmpty
-                
-                if hasAlbumTypes {
-                    rulesWithAlbumTypes.append((id: entry.id, classifier: entry.classifier))
-                }
-                if hasAlbumNames {
-                    rulesWithAlbumNames.append((id: entry.id, classifier: entry.classifier))
-                }
-                if !hasAlbumTypes && !hasAlbumNames {
-                    rulesWithoutAlbumRestrictions.append((id: entry.id, classifier: entry.classifier))
-                }
-            }
-            
-            var allAssets: Set<PHAsset> = []
-            
-            // 处理指定了相册类型的规则
-            if !rulesWithAlbumTypes.isEmpty {
-                var albumTypeSet: Set<String> = []
-                for rule in rulesWithAlbumTypes {
-                    for albumType in rule.classifier.supportedAlbumTypes {
-                        let key = "\(albumType.type.rawValue)-\(albumType.subtype.rawValue)"
-                        albumTypeSet.insert(key)
-                    }
-                }
-                
-                var albumTypeArray: [(type: PHAssetCollectionType, subtype: PHAssetCollectionSubtype)] = []
-                for key in albumTypeSet {
-                    let components = key.split(separator: "-")
-                    if components.count == 2, let typeRaw = Int(components[0]), let subtypeRaw = Int(components[1]) {
-                        let type = PHAssetCollectionType(rawValue: typeRaw) ?? .album
-                        let subtype = PHAssetCollectionSubtype(rawValue: subtypeRaw) ?? .albumRegular
-                        albumTypeArray.append((type: type, subtype: subtype))
-                    }
-                }
-                
-                let assetsFromAlbumTypes = self.fetchAssetsFromAlbumTypes(albumTypeArray)
-                assetsFromAlbumTypes.forEach { allAssets.insert($0) }
-            }
-            
-            // 处理指定了相册名的规则
-            if !rulesWithAlbumNames.isEmpty {
-                var albumNameSet: Set<String> = []
-                for rule in rulesWithAlbumNames {
-                    albumNameSet.formUnion(rule.classifier.supportedAlbumNames)
-                }
-                
-                let assetsFromAlbumNames = self.fetchAssetsFromAlbumNames(albumNameSet)
-                assetsFromAlbumNames.forEach { allAssets.insert($0) }
-            }
-            
-            // 处理未指定相册限制的规则
-            if !rulesWithoutAlbumRestrictions.isEmpty {
-                let opt = PHFetchOptions()
-                opt.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-                opt.predicate = NSPredicate(
-                    format: "mediaType == %d OR mediaType == %d",
-                    PHAssetMediaType.image.rawValue,
-                    PHAssetMediaType.video.rawValue
-                )
-                let assets = PHAsset.fetchAssets(with: opt)
-                assets.enumerateObjects { asset, _, _ in
-                    allAssets.insert(asset)
-                }
-            }
-            
-            var assets: [PHAsset] = Array(allAssets)
-            assets.sort { $0.creationDate ?? Date.distantPast > $1.creationDate ?? Date.distantPast }
-            
-            var filtered: [PHAsset] = []
-            filtered.reserveCapacity(assets.count)
-            
-            switch scanScope {
-            case .all:
-                filtered = assets
-            case .uncategorized:
-                let assetsInAnyAlbum = self.buildAssetsInAnyAlbumSet()
-                for asset in assets {
-                    guard !assetsInAnyAlbum.contains(asset.localIdentifier) else { continue }
-                    filtered.append(asset)
-                }
-            case .unscanned:
-                let assetsInAnyAlbum = self.buildAssetsInAnyAlbumSet()
-                for asset in assets {
-                    // 未扫描：既不在任何相册中，也没有被扫描过
-                    guard !assetsInAnyAlbum.contains(asset.localIdentifier),
-                          !scannedAssetIDs.contains(asset.localIdentifier) else { continue }
-                    filtered.append(asset)
-                }
-            }
-
-            self.assets = filtered
-            self.totalCount = self.assets.count
-
-            let savedTotal = UserDefaults.standard.integer(forKey: totalKey)
-            if savedTotal == self.totalCount, savedTotal > 0 {
-                self.currentIndex = UserDefaults.standard.integer(forKey: indexKey)
-                self.processedCount = min(UserDefaults.standard.integer(forKey: countKey), self.totalCount)
-            } else {
-                self.currentIndex = 0
-                self.processedCount = 0
-            }
-
-            UserDefaults.standard.set(self.totalCount, forKey: totalKey)
-            self.status = "已处理 \(self.processedCount)/\(self.totalCount) 张"
-            self.isRunning = true
-            self.processNext()
-        }
+        loadAssetsInternal(useUserStartIndex: false)
     }
-    
+
     private func loadAssetsWithStartIndex() {
-        DispatchQueue.main.async { [weak self] in
+        loadAssetsInternal(useUserStartIndex: true)
+    }
+
+    /// 统一的 asset 加载逻辑，消除 loadAssets / loadAssetsWithStartIndex 的代码重复
+    private func loadAssetsInternal(useUserStartIndex: Bool) {
+        // 所有 Photos fetch 都放到后台线程，避免"开始整理"时卡住主线程。
+        scanQueue.async { [weak self] in
             guard let self = self else { return }
+
             self.buildAlbumCache()
-            self.buildInitialAlbumPhotoCounts()
-            
-            // 分类处理：分为指定了相册类型的规则、指定了相册名的规则和未指定的规则
-            var rulesWithAlbumTypes: [(id: String, classifier: PhotoClassifiable)] = []
-            var rulesWithAlbumNames: [(id: String, classifier: PhotoClassifiable)] = []
-            var rulesWithoutAlbumRestrictions: [(id: String, classifier: PhotoClassifiable)] = []
-            
+            let initialCounts = self.buildInitialAlbumPhotoCounts()
+
+            // 按规则类型分组
+            var albumTypesWithRules: [PhotoClassifiable] = []
+            var albumNamesWithRules: [PhotoClassifiable] = []
+            var unrestrictedRules: [PhotoClassifiable] = []
+
             for entry in classifiers where selectedRuleIDs.contains(entry.id) {
-                let hasAlbumTypes = !entry.classifier.supportedAlbumTypes.isEmpty
-                let hasAlbumNames = !entry.classifier.supportedAlbumNames.isEmpty
-                
-                if hasAlbumTypes {
-                    rulesWithAlbumTypes.append((id: entry.id, classifier: entry.classifier))
-                }
-                if hasAlbumNames {
-                    rulesWithAlbumNames.append((id: entry.id, classifier: entry.classifier))
-                }
-                if !hasAlbumTypes && !hasAlbumNames {
-                    rulesWithoutAlbumRestrictions.append((id: entry.id, classifier: entry.classifier))
-                }
+                let c = entry.classifier
+                let hasTypes = !c.supportedAlbumTypes.isEmpty
+                let hasNames = !c.supportedAlbumNames.isEmpty
+                if hasTypes { albumTypesWithRules.append(c) }
+                if hasNames { albumNamesWithRules.append(c) }
+                if !hasTypes && !hasNames { unrestrictedRules.append(c) }
             }
-            
-            var allAssets: Set<PHAsset> = []
-            
-            // 处理指定了相册类型的规则
-            if !rulesWithAlbumTypes.isEmpty {
-                var albumTypeSet: Set<String> = []
-                
-                for rule in rulesWithAlbumTypes {
-                    for albumType in rule.classifier.supportedAlbumTypes {
-                        let key = "\(albumType.type.rawValue)-\(albumType.subtype.rawValue)"
-                        albumTypeSet.insert(key)
+
+            var allAssets = Set<PHAsset>()
+
+            // 相册类型
+            if !albumTypesWithRules.isEmpty {
+                var seen = Set<String>()
+                var types: [(PHAssetCollectionType, PHAssetCollectionSubtype)] = []
+                for c in albumTypesWithRules {
+                    for t in c.supportedAlbumTypes {
+                        let key = "\(t.type.rawValue)-\(t.subtype.rawValue)"
+                        guard seen.insert(key).inserted else { continue }
+                        types.append((t.type, t.subtype))
                     }
                 }
-                
-                var albumTypeArray: [(type: PHAssetCollectionType, subtype: PHAssetCollectionSubtype)] = []
-                for key in albumTypeSet {
-                    let components = key.split(separator: "-")
-                    if components.count == 2, let typeRaw = Int(components[0]), let subtypeRaw = Int(components[1]) {
-                        let type = PHAssetCollectionType(rawValue: typeRaw) ?? .album
-                        let subtype = PHAssetCollectionSubtype(rawValue: subtypeRaw) ?? .albumRegular
-                        albumTypeArray.append((type: type, subtype: subtype))
-                    }
-                }
-                
-                let assetsFromAlbumTypes = self.fetchAssetsFromAlbumTypes(albumTypeArray)
-                assetsFromAlbumTypes.forEach { allAssets.insert($0) }
+                fetchAssetsFromAlbumTypes(types).forEach { allAssets.insert($0) }
             }
-            
-            // 处理指定了相册名的规则
-            if !rulesWithAlbumNames.isEmpty {
-                var albumNameSet: Set<String> = []
-                for rule in rulesWithAlbumNames {
-                    albumNameSet.formUnion(rule.classifier.supportedAlbumNames)
-                }
-                
-                let assetsFromAlbumNames = self.fetchAssetsFromAlbumNames(albumNameSet)
-                assetsFromAlbumNames.forEach { allAssets.insert($0) }
+
+            // 相册名
+            if !albumNamesWithRules.isEmpty {
+                var names = Set<String>()
+                for c in albumNamesWithRules { names.formUnion(c.supportedAlbumNames) }
+                fetchAssetsFromAlbumNames(names).forEach { allAssets.insert($0) }
             }
-            
-            // 处理未指定相册限制的规则
-            if !rulesWithoutAlbumRestrictions.isEmpty {
+
+            // 无限制
+            if !unrestrictedRules.isEmpty {
                 let opt = PHFetchOptions()
                 opt.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
                 opt.predicate = NSPredicate(
                     format: "mediaType == %d OR mediaType == %d",
-                    PHAssetMediaType.image.rawValue,
-                    PHAssetMediaType.video.rawValue
-                )
-                let assets = PHAsset.fetchAssets(with: opt)
-                assets.enumerateObjects { asset, _, _ in
-                    allAssets.insert(asset)
-                }
+                    PHAssetMediaType.image.rawValue, PHAssetMediaType.video.rawValue)
+                PHAsset.fetchAssets(with: opt).enumerateObjects { a, _, _ in allAssets.insert(a) }
             }
-            
-            var assets: [PHAsset] = Array(allAssets)
-            assets.sort { $0.creationDate ?? Date.distantPast > $1.creationDate ?? Date.distantPast }
-            
+
+            var arr = Array(allAssets)
+            arr.sort { ($0.creationDate ?? .distantPast) > ($1.creationDate ?? .distantPast) }
+
+            // 范围过滤
             var filtered: [PHAsset] = []
-            filtered.reserveCapacity(assets.count)
-            
-            switch scanScope {
+            filtered.reserveCapacity(arr.count)
+
+            switch self.scanScope {
             case .all:
-                filtered = assets
+                filtered = arr
             case .uncategorized:
-                let assetsInAnyAlbum = self.buildAssetsInAnyAlbumSet()
-                for asset in assets {
-                    guard !assetsInAnyAlbum.contains(asset.localIdentifier) else { continue }
-                    filtered.append(asset)
-                }
+                let inAlbum = self.buildAssetsInAnyAlbumSet()
+                for a in arr { if !inAlbum.contains(a.localIdentifier) { filtered.append(a) } }
             case .unscanned:
-                let assetsInAnyAlbum = self.buildAssetsInAnyAlbumSet()
-                for asset in assets {
-                    // 未扫描：既不在任何相册中，也没有被扫描过
-                    guard !assetsInAnyAlbum.contains(asset.localIdentifier),
-                          !scannedAssetIDs.contains(asset.localIdentifier) else { continue }
-                    filtered.append(asset)
+                let inAlbum = self.buildAssetsInAnyAlbumSet()
+                for a in arr {
+                    if !inAlbum.contains(a.localIdentifier),
+                       !self.scannedAssetIDs.contains(a.localIdentifier) {
+                        filtered.append(a)
+                    }
                 }
             }
 
-            self.assets = filtered
-            self.totalCount = self.assets.count
+            let savedTotal = UserDefaults.standard.integer(forKey: self.totalKey)
 
-            // 使用用户指定的startIndex
-            let targetIndex = min(max(0, self.startIndex), self.totalCount)
-            self.currentIndex = targetIndex
-            self.processedCount = targetIndex
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                self.isLoadingAssets = false
+                self.assets = filtered
+                self.totalCount = filtered.count
+                self.albumPhotoCounts = initialCounts
 
-            UserDefaults.standard.set(self.totalCount, forKey: totalKey)
-            self.status = "从第 \(targetIndex + 1) 张开始，共 \(self.totalCount) 张"
-            self.isRunning = true
-            self.processNext()
+                if useUserStartIndex {
+                    let target = min(max(0, self.startIndex), self.totalCount)
+                    self.currentIndex = target
+                    self.processedCount = target
+                    self.status = "从第 \(target + 1) 张开始，共 \(self.totalCount) 张"
+                } else {
+                    if savedTotal == self.totalCount, savedTotal > 0 {
+                        self.currentIndex = UserDefaults.standard.integer(forKey: self.indexKey)
+                        self.processedCount = min(UserDefaults.standard.integer(forKey: self.countKey), self.totalCount)
+                    } else {
+                        self.currentIndex = 0
+                        self.processedCount = 0
+                    }
+                    self.status = "已处理 \(self.processedCount)/\(self.totalCount) 张"
+                }
+
+                UserDefaults.standard.set(self.totalCount, forKey: self.totalKey)
+                self.isRunning = true
+                self.processNext()
+            }
         }
     }
     
@@ -865,9 +819,11 @@ class PhotoSorter: ObservableObject {
                     self.stopProcessingTimer()
                 }
             }
+            // 扫描结束或暂停时，刷入已扫描 ID 防止丢失
+            finalizeScannedIDs()
             return
         }
-        
+
         // 在第一次处理时启动计时器
         if currentIndex == 0 && processedCount == 0 {
             DispatchQueue.main.async {
@@ -883,24 +839,69 @@ class PhotoSorter: ObservableObject {
             let semaphore = DispatchSemaphore(value: 0)
 
             self.processSingle(asset) {
-                DispatchQueue.main.async {
-                    self.processedCount += 1
-                    self.currentIndex += 1
-                    self.status = "已处理 \(self.processedCount)/\(self.totalCount) 张"
+                // currentIndex 每张照片都在主线程推进（非 @Published，不触发 SwiftUI 重渲染）
+                // processedCount + status 两个 @Published 每 100ms 合并刷新一次，
+                // 避免每张照片 3 次 objectWillChange 导致扫描时滑动卡顿。
+                let now = CACurrentMediaTime()
+                if now - self.lastProgressNotifyTime >= self.progressNotifyInterval {
+                    self.lastProgressNotifyTime = now
+                    DispatchQueue.main.async {
+                        self.currentIndex += 1
+                        let count = self.currentIndex
+                        self.processedCount = count
+                        self.status = "已处理 \(count)/\(self.totalCount) 张"
+                    }
+                } else {
+                    DispatchQueue.main.async {
+                        self.currentIndex += 1
+                    }
                 }
                 semaphore.signal()
             }
 
             semaphore.wait()
-            self.processNext()
+
+            self.scheduleNextProcess()
         }
     }
 
-    // MARK: 🔥 这里改成原图获取（和相册一样分辨率）
+    /// 调度下一张照片的处理。
+    /// 用户滚动时挂起整个扫描（当前张 OCR 结束后就不再启动新工作），
+    /// 让出 CPU/GPU 给 UI；滚动停止约 0.4s 后自动恢复。
+    private func scheduleNextProcess() {
+        let checkInterval: TimeInterval = isUserScrolling ? 0.4 : scanThrottleInterval
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + checkInterval) { [weak self] in
+            guard let self = self else { return }
+            guard self.isRunning else { return }
+            if self.isUserScrolling {
+                self.scheduleNextProcess()
+            } else {
+                self.processNext()
+            }
+        }
+    }
+
+    // MARK: 🔥 自适应分辨率：OCR 分类器用原图保证文字识别率，图像分类用降采样节省性能
+    private var _needsHighResCache: Bool?
+
+    private var needsHighRes: Bool {
+        if let cached = _needsHighResCache { return cached }
+        let val = classifiers.contains { entry in
+            selectedRuleIDs.contains(entry.id) && entry.classifier.requiresHighResolution
+        }
+        _needsHighResCache = val
+        return val
+    }
+
+    // MARK: 自适应分辨率核心：OCR 用原图，纯图像分类用降采样
     private func processSingle(_ asset: PHAsset, completion: @escaping () -> Void) {
         // 视频不走 OCR/截图类逻辑，使用占位图触发仅支持视频的规则（如 FavoriteYear）。
         if asset.mediaType == .video {
             let albumNames = classifyAll(image: placeholderImage(), asset: asset)
+            DispatchQueue.main.async {
+                self.currentAlbumNames = albumNames
+                self.currentThumbnail = nil
+            }
             for albumName in albumNames {
                 move(asset: asset, toAlbum: albumName)
             }
@@ -909,13 +910,18 @@ class PhotoSorter: ObservableObject {
             completion()
             return
         }
-        
+
         let options = PHImageRequestOptions()
         options.isSynchronous = false
-        options.resizeMode = .none          // 不缩放：全图原尺寸
+        options.resizeMode = .none          // 不缩放：原尺寸
         options.deliveryMode = .highQualityFormat
         options.isNetworkAccessAllowed = true
-        
+
+        // OCR 规则 → 原图；纯图像分类/位置 → 降采样到 1024 省性能
+        let targetSize: CGSize = needsHighRes
+            ? PHImageManagerMaximumSize
+            : CGSize(width: 1024, height: 1024)
+
         // 在异步请求前打印位置信息，避免位置信息丢失
         #if DEBUG
         let location = asset.location
@@ -925,11 +931,11 @@ class PhotoSorter: ObservableObject {
             print("[📍 照片位置] 索引: \(currentIndex), 无位置信息")
         }
         #endif
-        
+
         PHImageManager.default().requestImage(
             for: asset,
-            targetSize: PHImageManagerMaximumSize,  // 原图分辨率
-            contentMode: .default,
+            targetSize: targetSize,
+            contentMode: needsHighRes ? .default : .aspectFit,
             options: options
         ) { [weak self] image, info in
             guard let self = self,
@@ -939,30 +945,56 @@ class PhotoSorter: ObservableObject {
                 return
             }
 
+            // 实时缩略图 + 归类结果：复用已解码的图降采样，避免额外 PHImageManager 请求。
+            // 只在主线程设置 @Published，避免跨线程更新 SwiftUI。
+            let thumb = self.makeThumbnail(from: cgImage)
             let albumNames = self.classifyAll(image: cgImage, asset: asset)
+            DispatchQueue.main.async {
+                self.currentThumbnail = thumb
+                self.currentAlbumNames = albumNames
+            }
+
             for albumName in albumNames {
                 self.move(asset: asset, toAlbum: albumName)
             }
 
             // 标记为已扫描
             self.markAsScanned(asset: asset)
-            
+
             completion()
         }
     }
     
-    // 标记照片为已扫描
+    // 标记照片为已扫描（批量刷入 UserDefaults，减少磁盘 I/O）
     private func markAsScanned(asset: PHAsset) {
-        // 更新内存缓存
         if scannedAssetIDsCache == nil {
-            _ = scannedAssetIDs  // 触发 getter 初始化缓存
+            scannedAssetIDsCache = scannedAssetIDs
         }
         scannedAssetIDsCache?.insert(asset.localIdentifier)
-        
-        // 持久化到 UserDefaults
-        if let data = try? JSONEncoder().encode(scannedAssetIDsCache) {
+        pendingScannedIDs.insert(asset.localIdentifier)
+
+        if pendingScannedIDs.count >= scannedFlushBatchSize {
+            flushScannedIDs()
+        }
+    }
+
+    /// 将待写入的已扫描 ID 批量持久化到 UserDefaults
+    private func flushScannedIDs() {
+        guard !pendingScannedIDs.isEmpty else { return }
+        // 重新读取最新值再合并，防止多线程竞态覆盖
+        var current = scannedAssetIDs
+        current.formUnion(pendingScannedIDs)
+        pendingScannedIDs.removeAll(keepingCapacity: true)
+        scannedAssetIDsCache = current
+        if let data = try? JSONEncoder().encode(current) {
             UserDefaults.standard.set(data, forKey: scannedAssetsKey)
         }
+    }
+
+    // MARK: - 扫描完成收尾
+    /// 扫描停止或完成时调用，确保所有已扫描 ID 都已被持久化
+    private func finalizeScannedIDs() {
+        flushScannedIDs()
     }
 
     // MARK: - 移动照片（不创建相册）
@@ -1014,7 +1046,10 @@ class PhotoSorter: ObservableObject {
         }
     }
 
-    private func buildInitialAlbumPhotoCounts() {
+    /// 计算选中规则对应相册的初始计数（不直接赋值 @Published，避免跨线程）。
+    /// 返回字典，由调用方在主线程设置 albumPhotoCounts。
+    @discardableResult
+    private func buildInitialAlbumPhotoCounts() -> [String: Int] {
         // 初始化选中规则对应的相册，计数为0
         var counts: [String: Int] = [:]
 
@@ -1022,7 +1057,7 @@ class PhotoSorter: ObservableObject {
         var targetAlbumNames = Set<String>()
         for entry in classifiers where selectedRuleIDs.contains(entry.id) {
             let albumName = entry.classifier.albumName
-            
+
             // 精华年份相册：只统计年份相册（精华2021-精华2026），不统计单独的"精华"相册
             if albumName == "精华" {
                 for year in 2021...2026 {
@@ -1040,12 +1075,15 @@ class PhotoSorter: ObservableObject {
             counts[name] = 0
         }
 
-        albumPhotoCounts = counts
+        return counts
     }
 
     // Build a set of asset identifiers that are already present in any user album.
     // Used to pre-filter the scan workload (skip photos already in albums).
+    // Result is cached to avoid re-enumerating every time loadAssets is called.
     private func buildAssetsInAnyAlbumSet() -> Set<String> {
+        if let cached = assetsInAnyAlbumCache { return cached }
+
         var ids = Set<String>()
 
         let collections = PHAssetCollection.fetchAssetCollections(
@@ -1062,6 +1100,7 @@ class PhotoSorter: ObservableObject {
             }
         }
 
+        assetsInAnyAlbumCache = ids
         return ids
     }
 
@@ -1073,6 +1112,37 @@ class PhotoSorter: ObservableObject {
             ctx.fill(CGRect(origin: .zero, size: size))
         }
         return image.cgImage!
+    }
+
+    /// 从已解码的 CGImage 生成监控视图缩略图（最长边 ~800pt，居中裁切）。
+    /// 在后台线程调用，返回的 UIImage 由调用方切到主线程设置。
+    private func makeThumbnail(from cgImage: CGImage) -> UIImage {
+        let targetMax: CGFloat = 800
+        let w = CGFloat(cgImage.width)
+        let h = CGFloat(cgImage.height)
+        guard w > 0, h > 0 else {
+            return UIImage(cgImage: cgImage, scale: 1, orientation: .up)
+        }
+
+        // 计算保持宽高比的缩略尺寸
+        let scale = min(1, targetMax / max(w, h))
+        let tw = max(1, w * scale)
+        let th = max(1, h * scale)
+
+        // 安全使用 UIGraphicsImageRenderer 在后台渲染
+        UIGraphicsBeginImageContextWithOptions(CGSize(width: tw, height: th), false, 1.0)
+        defer { UIGraphicsEndImageContext() }
+        guard let ctx = UIGraphicsGetCurrentContext() else {
+            return UIImage(cgImage: cgImage, scale: 1, orientation: .up)
+        }
+        ctx.interpolationQuality = .medium
+        ctx.translateBy(x: 0, y: th)
+        ctx.scaleBy(x: 1, y: -1)
+        ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: tw, height: th))
+        if let result = UIGraphicsGetImageFromCurrentImageContext() {
+            return result
+        }
+        return UIImage(cgImage: cgImage, scale: 1, orientation: .up)
     }
 
     // MARK: - 进度保存
